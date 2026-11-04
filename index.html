@@ -1,0 +1,1037 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雷諾曼大藍圖陣 · Grand Tableau（分析2：循環 × 頭朝向交集）</title>
+<style>
+  :root{
+    --bg:#12161f; --cell:#232b3d; --cell-border:#39445c;
+    --accent:#d9a441; --text:#e8ecf4; --muted:#93a0b8;
+    --man:#6fa8ff; --woman:#ff8fb1; --bear:#e0a96d; --snake:#7bd88f;
+    --hit:#d9a441;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:24px 16px 48px;
+    background:radial-gradient(1200px 600px at 50% -10%, #1f2740 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  }
+  header,.toolbar,.save-bar,.board-wrap,.face-note,.analysis{max-width:1180px;margin-left:auto;margin-right:auto;}
+  header{margin-bottom:18px;}
+  h1{font-size:20px;margin:0 0 6px;letter-spacing:2px;font-weight:600;}
+  h2{font-size:16px;margin:0 0 12px;letter-spacing:2px;font-weight:600;color:#dbe3f2;}
+  .sub{color:var(--muted);font-size:13px;line-height:1.7;}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;}
+  .toolbar .sep{width:1px;height:22px;background:var(--cell-border);margin:0 4px;}
+  button{
+    font-family:inherit;font-size:14px;cursor:pointer;
+    background:linear-gradient(180deg,#2c3549,#222a3b);
+    color:var(--text);border:1px solid var(--cell-border);
+    padding:9px 18px;border-radius:8px;letter-spacing:1px;transition:.15s;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent);}
+  button.primary{
+    background:linear-gradient(180deg,#d9a441,#b8842a);
+    color:#1a1206;border-color:#e6bd6a;font-weight:700;
+  }
+  button.primary:hover{filter:brightness(1.08);}
+  button.ghost{font-size:12px;padding:6px 12px;}
+  select,input[type=text]{
+    font-family:inherit;font-size:13px;padding:8px 10px;border-radius:8px;
+    background:#222a3b;color:var(--text);border:1px solid var(--cell-border);
+  }
+  input[type=text]{min-width:240px;}
+  label.opt{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center;}
+
+  .save-bar{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    background:#1a2130;border:1px solid var(--cell-border);
+    border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;
+  }
+  .save-bar .meta{color:var(--muted);font-size:12.5px;}
+  .save-bar .meta b{color:#c7d2e6;font-weight:600;}
+  .badge{
+    font-size:11px;padding:2px 8px;border-radius:999px;
+    background:#2e3850;color:#c7d2e6;border:1px solid #43506e;
+  }
+  .badge.loaded{background:#2d4a34;border-color:#4b7a58;color:#a8e6bb;}
+
+  .board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;}
+  body.mode-large .board{min-width:1520px;}
+  body.mode-large .board-wrap{overflow-x:auto;}
+
+  .cell{
+    position:relative;background:var(--cell);
+    border:1px solid var(--cell-border);border-radius:10px;
+    padding:8px;min-height:96px;
+    display:flex;flex-direction:column;gap:6px;overflow:hidden;
+  }
+  .cell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#3d4a65;}
+  .cell.hl-man::before{background:var(--man);}
+  .cell.hl-woman::before{background:var(--woman);}
+  .cell.hl-bear::before{background:var(--bear);}
+  .cell.hl-snake::before{background:var(--snake);}
+  /* 分析2：頭朝前方的三格標記 */
+  .cell.reach::after{
+    content:"";position:absolute;inset:0;border:1.5px dashed rgba(217,164,65,.55);
+    border-radius:10px;pointer-events:none;
+  }
+  .cell.reach.head::after{border-style:solid;border-color:rgba(217,164,65,.9);}
+
+  .slot{font-size:11px;color:var(--muted);letter-spacing:1px;display:flex;gap:6px;align-items:baseline;}
+  .slot .no{
+    font-weight:700;color:#c7d2e6;font-size:12px;
+    background:#2e3850;border-radius:4px;padding:1px 5px;
+  }
+
+  .card{
+    margin-top:auto;position:relative;
+    display:flex;align-items:center;gap:8px;
+    background:linear-gradient(180deg,#2b3550,#242c40);
+    border:1px solid #43506e;border-radius:8px;padding:7px 8px;
+  }
+  .card.is-man{border-color:var(--man);box-shadow:0 0 0 1px rgba(111,168,255,.35) inset;}
+  .card.is-woman{border-color:var(--woman);box-shadow:0 0 0 1px rgba(255,143,177,.35) inset;}
+  .card .meta{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .card .name{font-size:15px;font-weight:600;letter-spacing:1px;}
+  .card.is-man .name{color:var(--man);}
+  .card.is-woman .name{color:var(--woman);}
+  .card .num{font-size:11px;color:var(--muted);}
+  .arrow{font-size:14px;line-height:1;color:#7ee2a8;margin-left:auto;}
+  .flip{transform:scaleX(-1);}
+
+  .art{
+    width:44px;height:64px;flex:none;border-radius:5px;
+    background:linear-gradient(180deg,#f7f3e8,#e8e1d1);
+    border:1px solid #c9c0ab;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;position:relative;overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.35);
+  }
+  .art .art-no{position:absolute;top:2px;left:4px;font-size:9px;font-weight:700;color:#8a7f66;}
+  .art .art-suit{position:absolute;bottom:2px;right:4px;font-size:11px;line-height:1;}
+  .art .art-name{font-size:15px;font-weight:800;color:#2b2620;text-align:center;line-height:1.05;padding:0 2px;}
+  .art .art-band{position:absolute;left:0;right:0;top:0;height:3px;}
+  .art-img{
+    width:44px;height:64px;flex:none;object-fit:cover;border-radius:5px;
+    border:1px solid #43506e;background:#1a1f2b;
+  }
+
+  body.mode-text .art,body.mode-text .art-img{display:none;}
+
+  body.mode-large .cell{min-height:170px;}
+  body.mode-large .card{
+    flex-direction:column;align-items:stretch;
+    background:transparent;border:none;padding:0;gap:4px;
+  }
+  body.mode-large .art,body.mode-large .art-img{width:100%;height:110px;object-fit:contain;}
+  body.mode-large .art .art-name{font-size:22px;}
+  body.mode-large .card .name{font-size:13px;text-align:center;}
+  body.mode-large .card .num{text-align:center;}
+  body.mode-large .arrow{margin:0 auto;}
+
+  .face-note{font-size:12.5px;color:var(--muted);line-height:1.8;margin-top:16px;}
+  .face-note b{color:#c7d2e6;}
+
+  .analysis{margin-top:28px;}
+  .analysis .panel{
+    background:#1a2130;border:1px solid var(--cell-border);
+    border-radius:12px;padding:18px 18px 8px;
+  }
+  .legend{font-size:12px;color:var(--muted);line-height:1.9;margin-bottom:14px;}
+  .legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 4px 0 10px;vertical-align:middle;}
+  .dot.d-man{background:var(--man);} .dot.d-woman{background:var(--woman);}
+  .dot.d-bear{background:var(--bear);} .dot.d-snake{background:var(--snake);}
+  .legend code{background:#222b3d;padding:1px 5px;border-radius:4px;color:#c7d2e6;}
+
+  .seq{margin-bottom:22px;}
+  .seq-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:14px;flex-wrap:wrap;}
+  .seq-head .tag{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:700;letter-spacing:1px;}
+  .tag.t-man{background:rgba(111,168,255,.16);color:var(--man);border:1px solid rgba(111,168,255,.45);}
+  .tag.t-woman{background:rgba(255,143,177,.16);color:var(--woman);border:1px solid rgba(255,143,177,.45);}
+  .tag.t-bear{background:rgba(224,169,109,.16);color:var(--bear);border:1px solid rgba(224,169,109,.45);}
+  .tag.t-snake{background:rgba(123,216,143,.16);color:var(--snake);border:1px solid rgba(123,216,143,.45);}
+  .seq-head .count{font-size:12px;color:var(--muted);}
+  .seq-head .warn{font-size:11.5px;color:#e8c56b;}
+
+  .chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+  .step{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:#222b3d;border:1px solid #3b4660;border-radius:8px;
+    padding:7px 11px;min-width:104px;
+  }
+  .step .s-card{font-size:14px;font-weight:700;letter-spacing:.5px;}
+  .step .s-at{font-size:10.5px;color:var(--muted);}
+  .step .s-slotname{font-size:10.5px;color:#8ea0c0;}
+  .step.start{border-color:var(--accent);background:#2a2c26;}
+  .step.start .s-card{color:var(--accent);}
+  .node-arrow{color:#5b6a88;font-size:13px;}
+  .closed{
+    font-size:11px;color:var(--accent);border:1px dashed #6b5a2e;border-radius:6px;
+    padding:3px 7px;background:rgba(217,164,65,.08);
+  }
+  .empty{font-size:13px;color:var(--muted);padding:6px 0 14px;}
+
+  /* 分析2 專用 */
+  .hit-box{
+    background:#20293c;border:1px solid #3b4660;border-radius:8px;
+    padding:10px 12px;margin-top:8px;
+  }
+  .hit-title{font-size:12px;color:var(--muted);margin-bottom:8px;}
+  .hit-none{font-size:12.5px;color:#9aa7bd;padding:4px 0;}
+  .reach-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .reach-cell{
+    font-size:11.5px;padding:3px 8px;border-radius:6px;
+    background:#1b2334;border:1px solid #33405a;color:#9aa7bd;
+  }
+  .reach-cell.in-seq{
+    background:rgba(217,164,65,.14);border-color:rgba(217,164,65,.6);color:var(--accent);font-weight:600;
+  }
+  .match-chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+  .match-step{
+    display:flex;flex-direction:column;gap:2px;
+    background:rgba(217,164,65,.10);border:1px solid rgba(217,164,65,.5);
+    border-radius:8px;padding:6px 10px;min-width:96px;
+  }
+  .match-step .m-card{font-size:13px;font-weight:700;color:#f0d9a8;}
+  .match-step .m-at{font-size:10.5px;color:#a9946b;}
+  .order-badge{
+    display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;
+    background:#d9a441;color:#1a1206;font-weight:700;margin-left:2px;
+  }
+
+  @media (max-width:860px){
+    .board{grid-template-columns:repeat(4,minmax(0,1fr));}
+    body.mode-large .board{min-width:0;}
+    .cell{min-height:84px;}
+    input[type=text]{min-width:0;flex:1;}
+  }
+</style>
+</head>
+<body class="mode-small">
+
+<header>
+  <h1>雷諾曼大藍圖陣 · Grand Tableau</h1>
+  <div class="sub">
+    第 1 列 1–8　·　第 2 列 9–16　·　第 3 列 17–24　·　第 4 列 25–32　·　第 5 列 33–36（置中於第 3–6 欄）
+  </div>
+</header>
+
+<div class="toolbar">
+  <button id="btnShuffle" class="primary">重新洗牌・重排</button>
+  <label class="opt">顯示
+    <select id="viewMode">
+      <option value="mode-small" selected>小圖</option>
+      <option value="mode-large">大圖</option>
+      <option value="mode-text">純文字</option>
+    </select>
+  </label>
+  <label class="opt">男／女朝向
+    <select id="faceMode">
+      <option value="mutual">傳統：彼此相向</option>
+      <option value="fixedRight">固定：皆朝右</option>
+    </select>
+  </label>
+  <label class="opt">熊頭
+    <select id="bearFace">
+      <option value="left" selected>朝左</option>
+      <option value="right">朝右</option>
+    </select>
+  </label>
+  <label class="opt">蛇頭
+    <select id="snakeFace">
+      <option value="left" selected>朝左</option>
+      <option value="right">朝右</option>
+    </select>
+  </label>
+  <label class="opt"><input type="checkbox" id="showMeaning">顯示宮位語意</label>
+  <span class="sep"></span>
+  <button id="btnSave">💾 存檔到本機</button>
+  <button id="btnLoad">📂 從本機載入</button>
+  <button id="btnDebug" class="ghost" title="在主控台印出索引與序列">🐞 自檢</button>
+  <input type="file" id="fileInput" accept="application/json,.json" hidden>
+</div>
+
+<div class="save-bar">
+  <span class="badge" id="stateBadge">目前：未存檔</span>
+  <label class="opt" style="flex:1;">
+    占卜概述
+    <input type="text" id="noteInput" placeholder="例：詢問 2026 年事業走向">
+  </label>
+  <span class="meta" id="timeMeta"></span>
+</div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+<div class="face-note" id="faceNote"></div>
+
+<!-- ===== 分析1：循環序列 ===== -->
+<section class="analysis">
+  <div class="panel">
+    <h2>分析 1 · 循環序列（男 / 女 / 熊 / 蛇）</h2>
+    <div class="legend">
+      走法：起點牌 →（起點牌所在位置的宮位名，該宮位名代表的牌 → 找出它實際落在哪個位置）→ 重複，直到回到起點牌。<br>
+      每格顯示：<b>牌名</b> ／ 它所在的位置（<code>第 N 格・某宮</code>）。
+      <span class="dot d-man"></span>男人
+      <span class="dot d-woman"></span>女人
+      <span class="dot d-bear"></span>熊
+      <span class="dot d-snake"></span>蛇
+    </div>
+    <div id="seqList"></div>
+  </div>
+</section>
+
+<!-- ===== 分析2：頭朝向交集 ===== -->
+<section class="analysis">
+  <div class="panel">
+    <h2>分析 2 · 循環序列 × 頭朝向前三格的交集</h2>
+    <div class="legend">
+      規則：看每張基準牌<b>頭部朝向</b>的前三格（左：−1、−2、−3 欄；右：＋1、＋2、＋3 欄，同列不跨列），
+      取得這三格的宮位號，再對照這些宮位上<b>抽到的牌</b>是否出現在「分析 1」該基準牌的序列裡。<br>
+      有交集者依<b>由近到遠</b>列出，<b>最多三張</b>。牌盤上以金色虛線框標示頭前三格。
+    </div>
+    <div id="overlapList"></div>
+  </div>
+</section>
+
+<script>
+/* ============ 1. 36 張牌 ============ */
+const CARDS = [
+  [1,"騎士","Rider"],       [2,"三葉草","Clover"],   [3,"船","Ship"],
+  [4,"房子","House"],       [5,"樹","Tree"],         [6,"雲","Clouds"],
+  [7,"蛇","Snake"],         [8,"棺材","Coffin"],     [9,"花束","Bouquet"],
+  [10,"鐮刀","Scythe"],     [11,"鞭","Whip"],        [12,"鳥","Birds"],
+  [13,"小孩","Child"],      [14,"狐狸","Fox"],       [15,"熊","Bear"],
+  [16,"星星","Stars"],      [17,"鸛","Stork"],       [18,"狗","Dog"],
+  [19,"塔","Tower"],        [20,"花園","Garden"],    [21,"山","Mountain"],
+  [22,"十字路口","X Roads"],[23,"老鼠","Mice"],      [24,"心","Heart"],
+  [25,"戒指","Ring"],       [26,"書","Book"],        [27,"信","Letter"],
+  [28,"男人","Man"],        [29,"女人","Lady"],      [30,"百合","Lily"],
+  [31,"太陽","Sun"],        [32,"月亮","Moon"],      [33,"鑰匙","Key"],
+  [34,"魚","Fish"],         [35,"錨","Anchor"],      [36,"十字架","Cross"]
+].map(([no,zh,en])=>({no,zh,en}));
+
+const SUIT = {
+  hearts:   {sym:"♥", color:"#c0392b", set:[9,24,25,27,30,31,33,34,36]},
+  diamonds: {sym:"♦", color:"#c0392b", set:[2,12,16,22,32]},
+  clubs:    {sym:"♣", color:"#2b2620", set:[1,3,4,10,14,20,23,28]},
+  spades:   {sym:"♠", color:"#2b2620", set:[5,6,7,8,11,13,15,17,18,19,21,26,29,35]}
+};
+function suitOf(no){
+  for (const k in SUIT) if (SUIT[k].set.includes(no)) return SUIT[k];
+  return {sym:"", color:"#2b2620"};
+}
+
+const KEYWORD = {
+  1:"訊息・來訪・行動",2:"小幸運・機會・輕快",3:"遠行・旅程・拓展",
+  4:"家庭・安定・根基",5:"健康・成長・久遠",6:"困惑・不明・暫時",
+  7:"誘惑・曲折・背叛",8:"結束・停滯・轉化",9:"美好・邀請・驚喜",
+  10:"決斷・切割・突發",11:"衝突・反覆・爭執",12:"溝通・耳語・焦慮",
+  13:"新的開始・純真・小事",14:"謹慎・工作・詭詐",15:"力量・權威・資源",
+  16:"希望・指引・靈感",17:"變動・搬遷・轉機",18:"友誼・忠誠・信任",
+  19:"體制・孤立・權威",20:"公開・社交・群眾",21:"阻礙・延宕・困境",
+  22:"選擇・分岔・路線",23:"耗損・焦慮・逐步流失",24:"愛・情感・熱忱",
+  25:"承諾・契約・結合",26:"秘密・知識・未明",27:"文件・通知・消息",
+  28:"提問者（男）・主動方",29:"提問者（女）・主動方",30:"成熟・平和・長久",
+  31:"成功・光明・活力",32:"情緒・名聲・直覺",33:"關鍵・解答・確信",
+  34:"財富・豐盛・數量",35:"穩定・工作・停泊",36:"考驗・宿命・終結"
+};
+
+/* ============ 2. 版面座標 ============ */
+const LAYOUT = [];
+for (let r=1;r<=4;r++)
+  for (let c=1;c<=8;c++)
+    LAYOUT.push({no:(r-1)*8+c,row:r,col:c});
+for (let c=3;c<=6;c++)
+  LAYOUT.push({no:32+(c-2),row:5,col:c});
+
+/* 由宮位號反查座標 */
+const SLOT_BY_NO = {};
+LAYOUT.forEach(s => SLOT_BY_NO[s.no] = s);
+
+/* ============ 3. 洗牌 ============ */
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+/* ============ 4. 朝向 ============ */
+function computeFacing(drawn, mode){
+  const posOf = {};
+  LAYOUT.forEach((s,i)=>posOf[drawn[i].no]={row:s.row,col:s.col});
+  const m = posOf[28], w = posOf[29];
+  const f = {28:"right",29:"right"};
+  if (mode === "fixedRight") return f;
+  if (m.col <= w.col){ f[28]="right"; f[29]="left"; }
+  else { f[28]="left"; f[29]="right"; }
+  return f;
+}
+
+/* 四張基準牌的頭朝向 */
+function headDirs(facing){
+  return {
+    28: facing[28],           // 男人
+    29: facing[29],           // 女人
+    15: bearFaceEl.value,     // 熊（選單）
+    7:  snakeFaceEl.value     // 蛇（選單）
+  };
+}
+
+/* ============ 5. 真圖偵測 ============ */
+const EXT = ["jpg","png","webp"];
+const imgCache = {}, imgTried = {};
+
+function tryLoadImage(no, cb){
+  if (no in imgCache) return cb(imgCache[no]);
+  if (imgTried[no]){
+    const t = setInterval(()=>{
+      if (no in imgCache){ clearInterval(t); cb(imgCache[no]); }
+    }, 30);
+    return;
+  }
+  imgTried[no] = true;
+  let i = 0;
+  (function next(){
+    if (i >= EXT.length){ imgCache[no]=null; return cb(null); }
+    const url = `cards/${String(no).padStart(2,"0")}.${EXT[i++]}`;
+    const img = new Image();
+    img.onload  = ()=>{ imgCache[no]=url;  cb(url); };
+    img.onerror = ()=> next();
+    img.src = url;
+  })();
+}
+
+/* ============ 6. 手繪牌面 ============ */
+function buildArt(card){
+  const suit = suitOf(card.no);
+  const el = document.createElement("div");
+  el.className = "art";
+  el.innerHTML =
+    `<div class="art-band" style="background:${suit.color}"></div>` +
+    `<span class="art-no">${card.no}</span>` +
+    `<span class="art-name">${card.zh}</span>` +
+    `<span class="art-suit" style="color:${suit.color}">${suit.sym}</span>`;
+  return el;
+}
+
+/* ============ 7. 狀態 ============ */
+const boardEl   = document.getElementById("board");
+const noteEl    = document.getElementById("faceNote");
+const faceMode  = document.getElementById("faceMode");
+const viewMode  = document.getElementById("viewMode");
+const showMean  = document.getElementById("showMeaning");
+const noteInput = document.getElementById("noteInput");
+const stateBadge= document.getElementById("stateBadge");
+const timeMeta  = document.getElementById("timeMeta");
+const seqListEl = document.getElementById("seqList");
+const overListEl= document.getElementById("overlapList");
+const bearFaceEl= document.getElementById("bearFace");
+const snakeFaceEl=document.getElementById("snakeFace");
+
+let currentDraw = [];
+let currentMeta = { saved:false, savedAt:null, note:"" };
+
+/* ============ 8. 時間 ============ */
+function fmtLocal(iso){
+  if (!iso) return "";
+  const d = new Date(iso), p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ` +
+         `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function nowISO(){ return new Date().toISOString(); }
+
+/* ============================================================
+   9. 循環序列核心（同分析1）
+   nextCard(p) = where[p]
+   ============================================================ */
+function buildIndex(){
+  const where = {};   // 牌號 -> 所在宮位號
+  const at = {};      // 宮位號 -> 該宮中的牌號
+  LAYOUT.forEach((slot,i)=>{
+    const c = currentDraw[i];
+    where[c.no] = slot.no;
+    at[slot.no] = c.no;
+  });
+  return {where, at};
+}
+
+function followCycle(startCardNo, idx){
+  const {where} = idx;
+  const steps = [];
+  let cur = startCardNo, guard = 0;
+  while (guard++ < 40){
+    const slot = where[cur];
+    steps.push({
+      cardNo: cur, cardName: CARDS[cur-1].zh,
+      slotNo: slot, slotName: CARDS[slot-1].zh
+    });
+    if (slot === startCardNo) break;
+    cur = slot;
+  }
+  return steps;
+}
+
+const BASE_CARDS = [
+  {no:28, key:"man",   label:"男人", cls:"t-man"},
+  {no:29, key:"woman", label:"女人", cls:"t-woman"},
+  {no:15, key:"bear",  label:"熊",   cls:"t-bear"},
+  {no:7,  key:"snake", label:"蛇",   cls:"t-snake"}
+];
+
+function buildAllCycles(){
+  if (currentDraw.length !== 36) return [];
+  const idx = buildIndex();
+  return BASE_CARDS.map(b=>({
+    key:b.key, label:b.label, cls:b.cls, baseNo:b.no,
+    steps: followCycle(b.no, idx),
+    cardSet: new Set(followCycle(b.no, idx).map(s=>s.cardNo))
+  }));
+}
+
+/* ============================================================
+   10. 分析2：頭朝向前三格
+   ------------------------------------------------------------
+   回傳由近到遠的宮位號陣列（最多 3 個）。同列，不跨列。
+   ============================================================ */
+function reachSlots(cardNo, dir, idx){
+  const where = idx.where[cardNo];
+  const base = SLOT_BY_NO[where];
+  if (!base) return [];
+  const step = dir === "right" ? 1 : -1;
+  const out = [];
+  for (let k=1;k<=3;k++){
+    const col = base.col + step*k;
+    if (col < 1 || col > 8) break;         // 出界即停（不跨列）
+    const slotNo = where_no_of(base.row, col);
+    if (slotNo == null) break;              // 該格不存在（第5列只有3-6欄）
+    out.push(slotNo);
+  }
+  return out;
+}
+
+function where_no_of(row, col){
+  const s = LAYOUT.find(x=>x.row===row && x.col===col);
+  return s ? s.no : null;
+}
+
+/* 建立某基準牌的分析2資料 */
+function buildOverlap(cy, idx, dir){
+  const slots = reachSlots(cy.baseNo, dir, idx);   // 由近到遠
+  const slotCards = slots.map(slotNo=>({
+    slotNo,
+    slotName: CARDS[slotNo-1].zh,
+    cardNo: idx.at[slotNo],
+    cardName: CARDS[idx.at[slotNo]-1].zh
+  }));
+  const hits = slotCards
+    .filter(sc => cy.cardSet.has(sc.cardNo))
+    .slice(0,3);
+  return {dir, slots: slotCards, hits};
+}
+
+function renderOverlaps(){
+  overListEl.innerHTML = "";
+  if (currentDraw.length !== 36){
+    overListEl.innerHTML = `<div class="empty">尚無牌陣。</div>`;
+    return;
+  }
+  const idx = buildIndex();
+  const cycles = buildAllCycles();
+  const dirs = {
+    28: computeFacing(currentDraw, faceMode.value)[28],
+    29: computeFacing(currentDraw, faceMode.value)[29],
+    15: bearFaceEl.value,
+    7:  snakeFaceEl.value
+  };
+
+  cycles.forEach(cy=>{
+      const dir = dirs[cy.baseNo];                 // 取這張基準牌的頭朝向（left / right）
+
+
+//---------------------------
+    const dirLabel = dir === "right" ? "朝右 ▶" : "朝左 ◀";
+    const data = buildOverlap(cy, idx, dir);
+
+    const wrap = document.createElement("div");
+    wrap.className = "seq";
+
+    /* 標題列 */
+    const head = document.createElement("div");
+    head.className = "seq-head";
+    head.innerHTML =
+      `<span class="tag ${cy.cls}">${cy.label}</span>` +
+      `<span class="count">頭${dirLabel}　·　所在第 ${idx.where[cy.baseNo]} 格　·　交集 ${data.hits.length} 張</span>`;
+    wrap.appendChild(head);
+
+    /* 頭前三格明細 */
+    const box = document.createElement("div");
+    box.className = "hit-box";
+
+    const title = document.createElement("div");
+    title.className = "hit-title";
+    title.textContent = "頭朝方向前三格（由近到遠）→ 是否出現在分析1序列";
+    box.appendChild(title);
+
+    if (!data.slots.length){
+      const none = document.createElement("div");
+      none.className = "hit-none";
+      none.textContent = "此牌位於列的邊緣，頭朝方向沒有可取的前三格。";
+      box.appendChild(none);
+    }else{
+      const rl = document.createElement("div");
+      rl.className = "reach-list";
+      data.slots.forEach((sc, i)=>{
+        const inSeq = cy.cardSet.has(sc.cardNo);
+        const el = document.createElement("span");
+        el.className = "reach-cell" + (inSeq ? " in-seq" : "");
+        el.innerHTML =
+          `<b>+${i+1}</b> 第 ${sc.slotNo} 格（${sc.slotName}宮）` +
+          ` → 抽到 <b>${sc.cardName}</b> #${sc.cardNo}` +
+          (inSeq ? " ✓" : "");
+        rl.appendChild(el);
+      });
+      box.appendChild(rl);
+    }
+
+    /* 交集序列 */
+    if (data.hits.length){
+      const chain = document.createElement("div");
+      chain.className = "match-chain";
+      data.hits.forEach((h, i)=>{
+        const st = document.createElement("div");
+        st.className = "match-step";
+        st.innerHTML =
+          `<span class="m-card">${h.cardName} <span style="font-size:10px;opacity:.7">#${h.cardNo}</span>` +
+          `<span class="order-badge">${i+1}</span></span>` +
+          `<span class="m-at">位於第 ${h.slotNo} 格・${h.slotName}宮</span>`;
+        chain.appendChild(st);
+        if (i < data.hits.length - 1){
+          const ar = document.createElement("span");
+          ar.className = "node-arrow";
+          ar.textContent = "→";
+          chain.appendChild(ar);
+        }
+      });
+      box.appendChild(chain);
+    }else{
+      const none = document.createElement("div");
+      none.className = "hit-none";
+      none.textContent = "頭朝前三格與此序列沒有交集。";
+      box.appendChild(none);
+    }
+
+    wrap.appendChild(box);
+    overListEl.appendChild(wrap);
+  });
+
+  markReachCells();
+}
+
+/* 在牌盤上以虛線標出頭前三格 */
+function markReachCells(){
+  document.querySelectorAll(".cell.reach").forEach(el=>{
+    el.classList.remove("reach","head");
+  });
+  if (currentDraw.length !== 36) return;
+  const idx = buildIndex();
+  const dirs = {
+    28: computeFacing(currentDraw, faceMode.value)[28],
+    29: computeFacing(currentDraw, faceMode.value)[29],
+    15: bearFaceEl.value,
+    7:  snakeFaceEl.value
+  };
+  const cellEls = boardEl.querySelectorAll(".cell");
+
+  Object.keys(dirs).forEach(k=>{
+    const cardNo = Number(k);
+    const slots = reachSlots(cardNo, dirs[k], idx);
+    slots.forEach(slotNo=>{
+      const pos = LAYOUT.findIndex(s=>s.no===slotNo);
+      const cellEl = cellEls[pos];
+      if (cellEl) cellEl.classList.add("reach");
+    });
+    /* 基準牌本身也標「head」以示起點 */
+    const basePos = LAYOUT.findIndex(s=>s.no===idx.where[cardNo]);
+    if (cellEls[basePos]) cellEls[basePos].classList.add("reach","head");
+  });
+}
+
+/* ============ 11. 繪製循環序列（分析1，同前） ============ */
+function renderSequences(){
+  seqListEl.innerHTML = "";
+  if (currentDraw.length !== 36){
+    seqListEl.innerHTML = `<div class="empty">尚無牌陣。</div>`;
+    return;
+  }
+  const cycles = buildAllCycles();
+
+  cycles.forEach(cy=>{
+    const selfLoop = cy.steps.length === 1;
+    const wrap = document.createElement("div");
+    wrap.className = "seq";
+
+    const head = document.createElement("div");
+    head.className = "seq-head";
+    const countText = selfLoop
+      ? "起點即終點（1 環）"
+      : `共 ${cy.steps.length} 個節點，走 ${cy.steps.length} 步回到起點`;
+    const warnText = selfLoop
+      ? `⚠ ${cy.label} 目前落在「${CARDS[cy.baseNo-1].zh}宮」，故一步即回到自身`
+      : "";
+    head.innerHTML =
+      `<span class="tag ${cy.cls}">${cy.label}</span>` +
+      `<span class="count">${countText}</span>` +
+      (warnText ? `<span class="warn">${warnText}</span>` : "");
+    wrap.appendChild(head);
+
+    const chain = document.createElement("div");
+    chain.className = "chain";
+    cy.steps.forEach((s,i)=>{
+      const step = document.createElement("div");
+      step.className = "step" + (i===0 ? " start" : "");
+      step.innerHTML =
+        `<span class="s-card">${s.cardName} <span style="font-size:10px;color:#7d8aa3">#${s.cardNo}</span></span>` +
+        `<span class="s-at">坐於第 ${s.slotNo} 格</span>` +
+        `<span class="s-slotname">（${s.slotName}宮）</span>`;
+      chain.appendChild(step);
+      if (i < cy.steps.length - 1){
+        const ar = document.createElement("span");
+        ar.className = "node-arrow";
+        ar.textContent = "→";
+        chain.appendChild(ar);
+      }
+    });
+    const closed = document.createElement("span");
+    closed.className = "closed";
+    closed.textContent = selfLoop ? "↩ 自成環" : `↩ 回到${cy.label}`;
+    chain.appendChild(closed);
+
+    wrap.appendChild(chain);
+    seqListEl.appendChild(wrap);
+  });
+}
+
+/* ============ 12. 自檢 ============ */
+function debugDump(){
+  if (currentDraw.length !== 36){ console.log("尚無牌陣"); return; }
+  const idx = buildIndex();
+  const facing = computeFacing(currentDraw, faceMode.value);
+  const dirs = {28:facing[28], 29:facing[29], 15:bearFaceEl.value, 7:snakeFaceEl.value};
+
+  console.group("【自檢】循環序列（分析1）");
+  buildAllCycles().forEach(cy=>{
+    console.log(`${cy.label}：` +
+      cy.steps.map(s=>`${s.cardName}@第${s.slotNo}格[${s.slotName}宮]`).join(" → ") +
+      ` → ↩（${cy.steps.length} 節點）`);
+  });
+  console.groupEnd();
+
+  console.group("【自檢】頭朝向交集（分析2）");
+  buildAllCycles().forEach(cy=>{
+    const dir = dirs[cy.baseNo];
+    const data = buildOverlap(cy, idx, dir);
+    console.log(`${cy.label}（頭${dir==="right"?"右":"左"}）`);
+    console.table(data.slots.map((sc,i)=>({
+      距離: i+1,
+      宮位: sc.slotNo,
+      宮位名: sc.slotName,
+      抽到牌: sc.cardName,
+      在序列中: cy.cardSet.has(sc.cardNo) ? "✓" : ""
+    })));
+    console.log(`交集（最多3）：${data.hits.map(h=>h.cardName).join(" → ") || "無"}`);
+  });
+  console.groupEnd();
+}
+
+/* ============ 13. 存檔 / 載入 ============ */
+const SCHEMA = "lenormand-grand-tableau/v1";
+
+function buildSaveObject(){
+  const idx = buildIndex();
+  const facing = computeFacing(currentDraw, faceMode.value);
+  const dirs = {28:facing[28], 29:facing[29], 15:bearFaceEl.value, 7:snakeFaceEl.value};
+
+  const obj = {
+    schema: SCHEMA,
+    savedAt: currentMeta.savedAt || nowISO(),
+    note: noteInput.value.trim(),
+    faceMode: faceMode.value,
+    bearFace: bearFaceEl.value,
+    snakeFace: snakeFaceEl.value,
+    draw: currentDraw.map(c => c.no),
+    readable: {
+      layout: "8欄x5列；第5列置中於第3-6欄",
+      cards: LAYOUT.map((slot,i)=>({
+        slot: slot.no,
+        slotName: CARDS[slot.no-1].zh,
+        row: slot.row, col: slot.col,
+        cardNo: currentDraw[i].no,
+        cardName: currentDraw[i].zh
+      }))
+    }
+  };
+
+  obj.cycles = buildAllCycles().map(c=>({
+    key:c.key, label:c.label, length:c.steps.length,
+    path: c.steps.map(s=>({
+      slot:s.slotNo, slotName:s.slotName,
+      card:s.cardNo, cardName:s.cardName
+    }))
+  }));
+
+  obj.overlaps = buildAllCycles().map(c=>{
+    const data = buildOverlap(c, idx, dirs[c.baseNo]);
+    return {
+      key:c.key, label:c.label, dir:dirs[c.baseNo],
+      reach: data.slots.map(s=>({
+        slot:s.slotNo, slotName:s.slotName,
+        card:s.cardNo, cardName:s.cardName,
+        inSequence: c.cardSet.has(s.cardNo)
+      })),
+      hits: data.hits.map(h=>({
+        slot:h.slotNo, slotName:h.slotName,
+        card:h.cardNo, cardName:h.cardName
+      }))
+    };
+  });
+
+  return obj;
+}
+
+function doSave(){
+  const obj = buildSaveObject();
+  currentMeta.savedAt = obj.savedAt;
+  currentMeta.saved   = true;
+  currentMeta.note    = obj.note;
+  updateSaveBar();
+
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
+  const url  = URL.createObjectURL(blob);
+  const d = new Date(obj.savedAt);
+  const p = n => String(n).padStart(2,"0");
+  const stamp = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  const safeNote = (obj.note || "雷諾曼大藍圖").replace(/[\\/:*?"<>|]/g, "_").slice(0, 30);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `GT_${stamp}_${safeNote}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function validateSaveObject(obj){
+  if (!obj || typeof obj !== "object") throw new Error("檔案內容不是有效的 JSON 物件。");
+  if (obj.schema && obj.schema !== SCHEMA)
+    throw new Error(`檔案版本不符（${obj.schema}），此程式為 ${SCHEMA}。`);
+  if (!Array.isArray(obj.draw) || obj.draw.length !== 36)
+    throw new Error("牌陣資料不完整：需要 36 張牌。");
+  const seen = new Set();
+  for (const n of obj.draw){
+    if (!Number.isInteger(n) || n < 1 || n > 36) throw new Error(`牌號不合法：${n}`);
+    if (seen.has(n)) throw new Error(`牌號重複：${n}`);
+    seen.add(n);
+  }
+  return true;
+}
+
+function applyLoadedObject(obj){
+  currentDraw = obj.draw.map(no => CARDS[no-1]);
+  currentMeta.saved   = true;
+  currentMeta.savedAt = obj.savedAt || nowISO();
+  currentMeta.note    = (obj.note || "").trim();
+
+  noteInput.value = currentMeta.note;
+  if (obj.faceMode === "mutual" || obj.faceMode === "fixedRight")
+    faceMode.value = obj.faceMode;
+  if (obj.bearFace === "left" || obj.bearFace === "right")
+    bearFaceEl.value = obj.bearFace;
+  if (obj.snakeFace === "left" || obj.snakeFace === "right")
+    snakeFaceEl.value = obj.snakeFace;
+
+  render();
+  updateSaveBar("已載入存檔");
+}
+
+function doLoadFile(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const obj = JSON.parse(reader.result);
+      validateSaveObject(obj);
+      applyLoadedObject(obj);
+    }catch(err){ alert("載入失敗：\n" + err.message); }
+  };
+  reader.onerror = ()=> alert("讀取檔案失敗，請再試一次。");
+  reader.readAsText(file, "utf-8");
+}
+
+function updateSaveBar(loadedLabel){
+  if (currentMeta.saved){
+    stateBadge.textContent = loadedLabel || "已存檔（目前牌陣）";
+    stateBadge.classList.add("loaded");
+    timeMeta.innerHTML =
+      `存檔時間：<b>${fmtLocal(currentMeta.savedAt)}</b>` +
+      (currentMeta.note ? `　·　概述：<b>${escapeHtml(currentMeta.note)}</b>` : "");
+  }else{
+    stateBadge.textContent = "目前：未存檔";
+    stateBadge.classList.remove("loaded");
+    timeMeta.innerHTML = "";
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+/* ============ 14. 主繪製 ============ */
+const HL_MAP = {
+  28:{cls:"hl-man"}, 29:{cls:"hl-woman"},
+  15:{cls:"hl-bear"}, 7:{cls:"hl-snake"}
+};
+
+function draw(){
+  currentDraw = shuffle(CARDS);
+  currentMeta = {saved:false, savedAt:null, note:noteInput.value.trim()};
+  render();
+  updateSaveBar();
+}
+
+function render(){
+  const facing = computeFacing(currentDraw, faceMode.value);
+  boardEl.innerHTML = "";
+
+  LAYOUT.forEach((slot, i)=>{
+    const card = currentDraw[i];
+
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.style.gridRow = slot.row;
+    cell.style.gridColumn = slot.col;
+
+    if (HL_MAP[card.no]) cell.classList.add(HL_MAP[card.no].cls);
+
+    const slotLine = document.createElement("div");
+    slotLine.className = "slot";
+    slotLine.innerHTML =
+      `<span class="no">${slot.no}</span><span>${CARDS[slot.no-1].zh}宮</span>` +
+      (showMean.checked
+        ? `<span style="margin-left:auto;font-size:10.5px;opacity:.85">${KEYWORD[slot.no]}</span>`
+        : "");
+    cell.appendChild(slotLine);
+
+    const cardEl = document.createElement("div");
+    cardEl.className = "card";
+    if (card.no===28) cardEl.classList.add("is-man");
+    if (card.no===29) cardEl.classList.add("is-woman");
+
+    const artNode = buildArt(card);
+    if ((card.no===28||card.no===29) && facing[card.no]==="left")
+      artNode.classList.add("flip");
+    cardEl.appendChild(artNode);
+
+    tryLoadImage(card.no, url=>{
+      if (!url || !artNode.isConnected) return;
+      const img = document.createElement("img");
+      img.className = "art-img";
+      img.src = url;
+      img.alt = card.zh;
+      if ((card.no===28||card.no===29) && facing[card.no]==="left")
+        img.classList.add("flip");
+      artNode.replaceWith(img);
+    });
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.innerHTML =
+      `<span class="name">${card.zh}</span>` +
+      `<span class="num">#${card.no} ${card.en}</span>`;
+    cardEl.appendChild(meta);
+
+    if (card.no===28 || card.no===29){
+      const a = document.createElement("span");
+      a.className = "arrow";
+      a.textContent = facing[card.no]==="right" ? "▶" : "◀";
+      cardEl.appendChild(a);
+    }
+
+    cell.appendChild(cardEl);
+    boardEl.appendChild(cell);
+  });
+
+  const manPos   = LAYOUT[currentDraw.findIndex(c=>c.no===28)];
+  const womanPos = LAYOUT[currentDraw.findIndex(c=>c.no===29)];
+  const rel = manPos.row===womanPos.row
+    ? `同一列（第 ${manPos.row} 列）`
+    : `第 ${manPos.row} 列 與 第 ${womanPos.row} 列`;
+  const hasImg = Object.values(imgCache).some(Boolean);
+  noteEl.innerHTML =
+    `<b>男人</b>：第 ${manPos.no} 格　<b>女人</b>：第 ${womanPos.no} 格；相對位置：${rel}；` +
+    `朝向：${faceMode.value==="mutual"?"彼此相向":"皆朝右"}。<br>` +
+    `牌圖來源：${hasImg?"已載入 cards/ 目錄的圖檔":"尚未偵測到 cards/ 圖檔，目前使用程式繪製牌面"}`;
+
+  renderSequences();
+  renderOverlaps();
+  if (currentMeta.saved) updateSaveBar();
+}
+
+/* ============ 15. 事件 ============ */
+document.getElementById("btnShuffle").addEventListener("click", ()=>{
+  if (currentDraw.length){
+    if (!confirm("重新洗牌會蓋掉目前牌陣，未存檔的內容將遺失。要繼續嗎？")) return;
+  }
+  draw();
+});
+
+document.getElementById("btnSave").addEventListener("click", ()=>{
+  if (!currentDraw.length) return;
+  if (!noteInput.value.trim()){
+    const ok = confirm("尚未填寫「占卜概述」，仍要存檔嗎？");
+    if (!ok){ noteInput.focus(); return; }
+  }
+  doSave();
+});
+
+document.getElementById("btnLoad").addEventListener("click", ()=>{
+  document.getElementById("fileInput").click();
+});
+
+document.getElementById("btnDebug").addEventListener("click", debugDump);
+
+document.getElementById("fileInput").addEventListener("change", e=>{
+  const f = e.target.files && e.target.files[0];
+  if (f) doLoadFile(f);
+  e.target.value = "";
+});
+
+faceMode.addEventListener("change", render);
+showMean.addEventListener("change", render);
+bearFaceEl.addEventListener("change", render);
+snakeFaceEl.addEventListener("change", render);
+viewMode.addEventListener("change", e=>{
+  document.body.className = e.target.value;
+  render();
+});
+noteInput.addEventListener("input", ()=>{
+  if (currentMeta.saved){
+    currentMeta.note = noteInput.value.trim();
+    updateSaveBar();
+  }
+});
+
+/* ============ 16. 啟動 ============ */
+draw();
+</script>
+</body>
+</html>
