@@ -1,15 +1,14 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>雷諾曼大藍圖陣 · Grand Tableau（分析2：循環 × 頭朝向交集）</title>
+<title>雷諾曼大藍圖陣 · Grand Tableau（雪碧圖版＋分析1＋分析2）</title>
 <style>
   :root{
     --bg:#12161f; --cell:#232b3d; --cell-border:#39445c;
     --accent:#d9a441; --text:#e8ecf4; --muted:#93a0b8;
     --man:#6fa8ff; --woman:#ff8fb1; --bear:#e0a96d; --snake:#7bd88f;
-    --hit:#d9a441;
   }
   *{box-sizing:border-box;}
   body{
@@ -74,7 +73,6 @@
   .cell.hl-woman::before{background:var(--woman);}
   .cell.hl-bear::before{background:var(--bear);}
   .cell.hl-snake::before{background:var(--snake);}
-  /* 分析2：頭朝前方的三格標記 */
   .cell.reach::after{
     content:"";position:absolute;inset:0;border:1.5px dashed rgba(217,164,65,.55);
     border-radius:10px;pointer-events:none;
@@ -103,32 +101,34 @@
   .arrow{font-size:14px;line-height:1;color:#7ee2a8;margin-left:auto;}
   .flip{transform:scaleX(-1);}
 
+  /* ── 雪碧圖取格 ── */
   .art{
     width:44px;height:64px;flex:none;border-radius:5px;
-    background:linear-gradient(180deg,#f7f3e8,#e8e1d1);
-    border:1px solid #c9c0ab;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:2px;position:relative;overflow:hidden;
+    border:1px solid #43506e;
+    background-image:url("sprite.png");
+    background-repeat:no-repeat;
+    background-size:600% 600%;
+    background-color:#1a1f2b;
     box-shadow:0 1px 3px rgba(0,0,0,.35);
   }
-  .art .art-no{position:absolute;top:2px;left:4px;font-size:9px;font-weight:700;color:#8a7f66;}
-  .art .art-suit{position:absolute;bottom:2px;right:4px;font-size:11px;line-height:1;}
-  .art .art-name{font-size:15px;font-weight:800;color:#2b2620;text-align:center;line-height:1.05;padding:0 2px;}
-  .art .art-band{position:absolute;left:0;right:0;top:0;height:3px;}
-  .art-img{
-    width:44px;height:64px;flex:none;object-fit:cover;border-radius:5px;
-    border:1px solid #43506e;background:#1a1f2b;
+  /* 手繪 fallback（找不到 sprite.png 時） */
+  .art-fb{
+    width:44px;height:64px;flex:none;border-radius:5px;
+    background:linear-gradient(180deg,#f7f3e8,#e8e1d1);
+    border:1px solid #c9c0ab;position:relative;
+    display:flex;align-items:center;justify-content:center;
+    font-size:15px;font-weight:800;color:#2b2620;
   }
 
-  body.mode-text .art,body.mode-text .art-img{display:none;}
+  body.mode-text .art,body.mode-text .art-fb{display:none;}
 
   body.mode-large .cell{min-height:170px;}
   body.mode-large .card{
     flex-direction:column;align-items:stretch;
     background:transparent;border:none;padding:0;gap:4px;
   }
-  body.mode-large .art,body.mode-large .art-img{width:100%;height:110px;object-fit:contain;}
-  body.mode-large .art .art-name{font-size:22px;}
+  body.mode-large .art,body.mode-large .art-fb{width:100%;height:110px;}
+  body.mode-large .art{background-size:600% 600%;}
   body.mode-large .card .name{font-size:13px;text-align:center;}
   body.mode-large .card .num{text-align:center;}
   body.mode-large .arrow{margin:0 auto;}
@@ -175,11 +175,7 @@
   }
   .empty{font-size:13px;color:var(--muted);padding:6px 0 14px;}
 
-  /* 分析2 專用 */
-  .hit-box{
-    background:#20293c;border:1px solid #3b4660;border-radius:8px;
-    padding:10px 12px;margin-top:8px;
-  }
+  .hit-box{background:#20293c;border:1px solid #3b4660;border-radius:8px;padding:10px 12px;margin-top:8px;}
   .hit-title{font-size:12px;color:var(--muted);margin-bottom:8px;}
   .hit-none{font-size:12.5px;color:#9aa7bd;padding:4px 0;}
   .reach-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
@@ -214,7 +210,7 @@
 <body class="mode-small">
 
 <header>
-  <h1>雷諾曼大藍圖陣 · Grand Tableau</h1>
+  <h1>雷諾曼大藍圖陣 · Grand Tableau（雪碧圖版）</h1>
   <div class="sub">
     第 1 列 1–8　·　第 2 列 9–16　·　第 3 列 17–24　·　第 4 列 25–32　·　第 5 列 33–36（置中於第 3–6 欄）
   </div>
@@ -251,7 +247,7 @@
   <span class="sep"></span>
   <button id="btnSave">💾 存檔到本機</button>
   <button id="btnLoad">📂 從本機載入</button>
-  <button id="btnDebug" class="ghost" title="在主控台印出索引與序列">🐞 自檢</button>
+  <button id="btnDebug" class="ghost">🐞 自檢</button>
   <input type="file" id="fileInput" accept="application/json,.json" hidden>
 </div>
 
@@ -269,7 +265,6 @@
 </div>
 <div class="face-note" id="faceNote"></div>
 
-<!-- ===== 分析1：循環序列 ===== -->
 <section class="analysis">
   <div class="panel">
     <h2>分析 1 · 循環序列（男 / 女 / 熊 / 蛇）</h2>
@@ -285,7 +280,6 @@
   </div>
 </section>
 
-<!-- ===== 分析2：頭朝向交集 ===== -->
 <section class="analysis">
   <div class="panel">
     <h2>分析 2 · 循環序列 × 頭朝向前三格的交集</h2>
@@ -306,7 +300,10 @@ const CARDS = [
   [7,"蛇","Snake"],         [8,"棺材","Coffin"],     [9,"花束","Bouquet"],
   [10,"鐮刀","Scythe"],     [11,"鞭","Whip"],        [12,"鳥","Birds"],
   [13,"小孩","Child"],      [14,"狐狸","Fox"],       [15,"熊","Bear"],
-  [16,"星星","Stars"],      [17,"鸛","Stork"],       [18,"狗","Dog"],
+  [16,"星星","Stars"],      
+
+//////
+  [17,"鸛","Stork"],        [18,"狗","Dog"],
   [19,"塔","Tower"],        [20,"花園","Garden"],    [21,"山","Mountain"],
   [22,"十字路口","X Roads"],[23,"老鼠","Mice"],      [24,"心","Heart"],
   [25,"戒指","Ring"],       [26,"書","Book"],        [27,"信","Letter"],
@@ -314,17 +311,6 @@ const CARDS = [
   [31,"太陽","Sun"],        [32,"月亮","Moon"],      [33,"鑰匙","Key"],
   [34,"魚","Fish"],         [35,"錨","Anchor"],      [36,"十字架","Cross"]
 ].map(([no,zh,en])=>({no,zh,en}));
-
-const SUIT = {
-  hearts:   {sym:"♥", color:"#c0392b", set:[9,24,25,27,30,31,33,34,36]},
-  diamonds: {sym:"♦", color:"#c0392b", set:[2,12,16,22,32]},
-  clubs:    {sym:"♣", color:"#2b2620", set:[1,3,4,10,14,20,23,28]},
-  spades:   {sym:"♠", color:"#2b2620", set:[5,6,7,8,11,13,15,17,18,19,21,26,29,35]}
-};
-function suitOf(no){
-  for (const k in SUIT) if (SUIT[k].set.includes(no)) return SUIT[k];
-  return {sym:"", color:"#2b2620"};
-}
 
 const KEYWORD = {
   1:"訊息・來訪・行動",2:"小幸運・機會・輕快",3:"遠行・旅程・拓展",
@@ -349,7 +335,6 @@ for (let r=1;r<=4;r++)
 for (let c=3;c<=6;c++)
   LAYOUT.push({no:32+(c-2),row:5,col:c});
 
-/* 由宮位號反查座標 */
 const SLOT_BY_NO = {};
 LAYOUT.forEach(s => SLOT_BY_NO[s.no] = s);
 
@@ -375,54 +360,44 @@ function computeFacing(drawn, mode){
   return f;
 }
 
-/* 四張基準牌的頭朝向 */
-function headDirs(facing){
-  return {
-    28: facing[28],           // 男人
-    29: facing[29],           // 女人
-    15: bearFaceEl.value,     // 熊（選單）
-    7:  snakeFaceEl.value     // 蛇（選單）
-  };
+/* ============ 5. 雪碧圖取格 ============ */
+const SPRITE_URL = "sprite.png";
+let spriteOK = null;   // null=未確定, true/false
+
+function spriteAvailable(cb){
+  if (spriteOK !== null) return cb(spriteOK);
+  const img = new Image();
+  img.onload  = ()=>{ spriteOK = true;  cb(true);  };
+  img.onerror = ()=>{ spriteOK = false; cb(false); };
+  img.src = SPRITE_URL;
 }
 
-/* ============ 5. 真圖偵測 ============ */
-const EXT = ["jpg","png","webp"];
-const imgCache = {}, imgTried = {};
-
-function tryLoadImage(no, cb){
-  if (no in imgCache) return cb(imgCache[no]);
-  if (imgTried[no]){
-    const t = setInterval(()=>{
-      if (no in imgCache){ clearInterval(t); cb(imgCache[no]); }
-    }, 30);
-    return;
-  }
-  imgTried[no] = true;
-  let i = 0;
-  (function next(){
-    if (i >= EXT.length){ imgCache[no]=null; return cb(null); }
-    const url = `cards/${String(no).padStart(2,"0")}.${EXT[i++]}`;
-    const img = new Image();
-    img.onload  = ()=>{ imgCache[no]=url;  cb(url); };
-    img.onerror = ()=> next();
-    img.src = url;
-  })();
+/* 第 no 張牌在 6x6 中的位置（%），供 background-position 用 */
+function spritePos(no){
+  const idx = no - 1;
+  const col = idx % 6;
+  const row = Math.floor(idx / 6);
+  // background-size:600% 600% 時，每個位置單位是 20%
+  return { x: col * 20, y: row * 20 };
 }
 
-/* ============ 6. 手繪牌面 ============ */
-function buildArt(card){
-  const suit = suitOf(card.no);
+function buildArtNode(card){
   const el = document.createElement("div");
   el.className = "art";
-  el.innerHTML =
-    `<div class="art-band" style="background:${suit.color}"></div>` +
-    `<span class="art-no">${card.no}</span>` +
-    `<span class="art-name">${card.zh}</span>` +
-    `<span class="art-suit" style="color:${suit.color}">${suit.sym}</span>`;
+  const p = spritePos(card.no);
+  el.style.backgroundImage = `url("${SPRITE_URL}")`;
+  el.style.backgroundPosition = `${p.x}% ${p.y}%`;
   return el;
 }
 
-/* ============ 7. 狀態 ============ */
+function buildFallbackNode(card){
+  const el = document.createElement("div");
+  el.className = "art-fb";
+  el.textContent = card.zh;
+  return el;
+}
+
+/* ============ 6. 狀態 ============ */
 const boardEl   = document.getElementById("board");
 const noteEl    = document.getElementById("faceNote");
 const faceMode  = document.getElementById("faceMode");
@@ -439,7 +414,7 @@ const snakeFaceEl=document.getElementById("snakeFace");
 let currentDraw = [];
 let currentMeta = { saved:false, savedAt:null, note:"" };
 
-/* ============ 8. 時間 ============ */
+/* ============ 7. 時間 ============ */
 function fmtLocal(iso){
   if (!iso) return "";
   const d = new Date(iso), p = n => String(n).padStart(2,"0");
@@ -448,13 +423,9 @@ function fmtLocal(iso){
 }
 function nowISO(){ return new Date().toISOString(); }
 
-/* ============================================================
-   9. 循環序列核心（同分析1）
-   nextCard(p) = where[p]
-   ============================================================ */
+/* ============ 8. 循環序列核心 ============ */
 function buildIndex(){
-  const where = {};   // 牌號 -> 所在宮位號
-  const at = {};      // 宮位號 -> 該宮中的牌號
+  const where = {}, at = {};
   LAYOUT.forEach((slot,i)=>{
     const c = currentDraw[i];
     where[c.no] = slot.no;
@@ -489,18 +460,22 @@ const BASE_CARDS = [
 function buildAllCycles(){
   if (currentDraw.length !== 36) return [];
   const idx = buildIndex();
-  return BASE_CARDS.map(b=>({
-    key:b.key, label:b.label, cls:b.cls, baseNo:b.no,
-    steps: followCycle(b.no, idx),
-    cardSet: new Set(followCycle(b.no, idx).map(s=>s.cardNo))
-  }));
+  return BASE_CARDS.map(b=>{
+    const steps = followCycle(b.no, idx);
+    return {
+      key:b.key, label:b.label, cls:b.cls, baseNo:b.no,
+      steps,
+      cardSet: new Set(steps.map(s=>s.cardNo))
+    };
+  });
 }
 
-/* ============================================================
-   10. 分析2：頭朝向前三格
-   ------------------------------------------------------------
-   回傳由近到遠的宮位號陣列（最多 3 個）。同列，不跨列。
-   ============================================================ */
+/* ============ 9. 分析2：頭朝向前三格 ============ */
+function where_no_of(row, col){
+  const s = LAYOUT.find(x=>x.row===row && x.col===col);
+  return s ? s.no : null;
+}
+
 function reachSlots(cardNo, dir, idx){
   const where = idx.where[cardNo];
   const base = SLOT_BY_NO[where];
@@ -509,162 +484,37 @@ function reachSlots(cardNo, dir, idx){
   const out = [];
   for (let k=1;k<=3;k++){
     const col = base.col + step*k;
-    if (col < 1 || col > 8) break;         // 出界即停（不跨列）
+    if (col < 1 || col > 8) break;
     const slotNo = where_no_of(base.row, col);
-    if (slotNo == null) break;              // 該格不存在（第5列只有3-6欄）
+    if (slotNo == null) break;
     out.push(slotNo);
   }
   return out;
 }
 
-function where_no_of(row, col){
-  const s = LAYOUT.find(x=>x.row===row && x.col===col);
-  return s ? s.no : null;
-}
-
-/* 建立某基準牌的分析2資料 */
 function buildOverlap(cy, idx, dir){
-  const slots = reachSlots(cy.baseNo, dir, idx);   // 由近到遠
+  const slots = reachSlots(cy.baseNo, dir, idx);
   const slotCards = slots.map(slotNo=>({
     slotNo,
     slotName: CARDS[slotNo-1].zh,
     cardNo: idx.at[slotNo],
     cardName: CARDS[idx.at[slotNo]-1].zh
   }));
-  const hits = slotCards
-    .filter(sc => cy.cardSet.has(sc.cardNo))
-    .slice(0,3);
+  const hits = slotCards.filter(sc => cy.cardSet.has(sc.cardNo)).slice(0,3);
   return {dir, slots: slotCards, hits};
 }
 
-function renderOverlaps(){
-  overListEl.innerHTML = "";
-  if (currentDraw.length !== 36){
-    overListEl.innerHTML = `<div class="empty">尚無牌陣。</div>`;
-    return;
-  }
-  const idx = buildIndex();
-  const cycles = buildAllCycles();
-  const dirs = {
-    28: computeFacing(currentDraw, faceMode.value)[28],
-    29: computeFacing(currentDraw, faceMode.value)[29],
+function currentDirs(){
+  const facing = computeFacing(currentDraw, faceMode.value);
+  return {
+    28: facing[28],
+    29: facing[29],
     15: bearFaceEl.value,
     7:  snakeFaceEl.value
   };
-
-  cycles.forEach(cy=>{
-      const dir = dirs[cy.baseNo];                 // 取這張基準牌的頭朝向（left / right）
-
-
-//---------------------------
-    const dirLabel = dir === "right" ? "朝右 ▶" : "朝左 ◀";
-    const data = buildOverlap(cy, idx, dir);
-
-    const wrap = document.createElement("div");
-    wrap.className = "seq";
-
-    /* 標題列 */
-    const head = document.createElement("div");
-    head.className = "seq-head";
-    head.innerHTML =
-      `<span class="tag ${cy.cls}">${cy.label}</span>` +
-      `<span class="count">頭${dirLabel}　·　所在第 ${idx.where[cy.baseNo]} 格　·　交集 ${data.hits.length} 張</span>`;
-    wrap.appendChild(head);
-
-    /* 頭前三格明細 */
-    const box = document.createElement("div");
-    box.className = "hit-box";
-
-    const title = document.createElement("div");
-    title.className = "hit-title";
-    title.textContent = "頭朝方向前三格（由近到遠）→ 是否出現在分析1序列";
-    box.appendChild(title);
-
-    if (!data.slots.length){
-      const none = document.createElement("div");
-      none.className = "hit-none";
-      none.textContent = "此牌位於列的邊緣，頭朝方向沒有可取的前三格。";
-      box.appendChild(none);
-    }else{
-      const rl = document.createElement("div");
-      rl.className = "reach-list";
-      data.slots.forEach((sc, i)=>{
-        const inSeq = cy.cardSet.has(sc.cardNo);
-        const el = document.createElement("span");
-        el.className = "reach-cell" + (inSeq ? " in-seq" : "");
-        el.innerHTML =
-          `<b>+${i+1}</b> 第 ${sc.slotNo} 格（${sc.slotName}宮）` +
-          ` → 抽到 <b>${sc.cardName}</b> #${sc.cardNo}` +
-          (inSeq ? " ✓" : "");
-        rl.appendChild(el);
-      });
-      box.appendChild(rl);
-    }
-
-    /* 交集序列 */
-    if (data.hits.length){
-      const chain = document.createElement("div");
-      chain.className = "match-chain";
-      data.hits.forEach((h, i)=>{
-        const st = document.createElement("div");
-        st.className = "match-step";
-        st.innerHTML =
-          `<span class="m-card">${h.cardName} <span style="font-size:10px;opacity:.7">#${h.cardNo}</span>` +
-          `<span class="order-badge">${i+1}</span></span>` +
-          `<span class="m-at">位於第 ${h.slotNo} 格・${h.slotName}宮</span>`;
-        chain.appendChild(st);
-        if (i < data.hits.length - 1){
-          const ar = document.createElement("span");
-          ar.className = "node-arrow";
-          ar.textContent = "→";
-          chain.appendChild(ar);
-        }
-      });
-      box.appendChild(chain);
-    }else{
-      const none = document.createElement("div");
-      none.className = "hit-none";
-      none.textContent = "頭朝前三格與此序列沒有交集。";
-      box.appendChild(none);
-    }
-
-    wrap.appendChild(box);
-    overListEl.appendChild(wrap);
-  });
-
-  markReachCells();
 }
 
-/* 在牌盤上以虛線標出頭前三格 */
-function markReachCells(){
-  document.querySelectorAll(".cell.reach").forEach(el=>{
-    el.classList.remove("reach","head");
-  });
-  if (currentDraw.length !== 36) return;
-  const idx = buildIndex();
-  const dirs = {
-    28: computeFacing(currentDraw, faceMode.value)[28],
-    29: computeFacing(currentDraw, faceMode.value)[29],
-    15: bearFaceEl.value,
-    7:  snakeFaceEl.value
-  };
-  const cellEls = boardEl.querySelectorAll(".cell");
-
-  Object.keys(dirs).forEach(k=>{
-    const cardNo = Number(k);
-    const slots = reachSlots(cardNo, dirs[k], idx);
-    slots.forEach(slotNo=>{
-      const pos = LAYOUT.findIndex(s=>s.no===slotNo);
-      const cellEl = cellEls[pos];
-      if (cellEl) cellEl.classList.add("reach");
-    });
-    /* 基準牌本身也標「head」以示起點 */
-    const basePos = LAYOUT.findIndex(s=>s.no===idx.where[cardNo]);
-    if (cellEls[basePos]) cellEls[basePos].classList.add("reach","head");
-  });
-}
-
-/* ============ 11. 繪製循環序列（分析1，同前） ============ */
+/* ============ 10. 繪製分析1 ============ */
 function renderSequences(){
   seqListEl.innerHTML = "";
   if (currentDraw.length !== 36){
@@ -719,12 +569,120 @@ function renderSequences(){
   });
 }
 
+/* ============ 11. 繪製分析2 ============ */
+function renderOverlaps(){
+  overListEl.innerHTML = "";
+  if (currentDraw.length !== 36){
+    overListEl.innerHTML = `<div class="empty">尚無牌陣。</div>`;
+    return;
+  }
+  const idx = buildIndex();
+  const cycles = buildAllCycles();
+  const dirs = currentDirs();
+
+  cycles.forEach(cy=>{
+    const dir = dirs[cy.baseNo];
+    const dirLabel = dir === "right" ? "朝右 ▶" : "朝左 ◀";
+    const data = buildOverlap(cy, idx, dir);
+
+    const wrap = document.createElement("div");
+    wrap.className = "seq";
+
+    const head = document.createElement("div");
+    head.className = "seq-head";
+    head.innerHTML =
+      `<span class="tag ${cy.cls}">${cy.label}</span>` +
+      `<span class="count">頭${dirLabel}　·　所在第 ${idx.where[cy.baseNo]} 格　·　交集 ${data.hits.length} 張</span>`;
+    wrap.appendChild(head);
+
+    const box = document.createElement("div");
+    box.className = "hit-box";
+
+    const title = document.createElement("div");
+    title.className = "hit-title";
+    title.textContent = "頭朝方向前三格（由近到遠）→ 是否出現在分析1序列";
+    box.appendChild(title);
+
+    if (!data.slots.length){
+      const none = document.createElement("div");
+      none.className = "hit-none";
+      none.textContent = "此牌位於列的邊緣，頭朝方向沒有可取的前三格。";
+      box.appendChild(none);
+    }else{
+      const rl = document.createElement("div");
+      rl.className = "reach-list";
+      data.slots.forEach((sc, i)=>{
+        const inSeq = cy.cardSet.has(sc.cardNo);
+        const el = document.createElement("span");
+        el.className = "reach-cell" + (inSeq ? " in-seq" : "");
+        el.innerHTML =
+          `<b>+${i+1}</b> 第 ${sc.slotNo} 格（${sc.slotName}宮）` +
+          ` → 抽到 <b>${sc.cardName}</b> #${sc.cardNo}` +
+          (inSeq ? " ✓" : "");
+        rl.appendChild(el);
+      });
+      box.appendChild(rl);
+    }
+
+    if (data.hits.length){
+      const chain = document.createElement("div");
+      chain.className = "match-chain";
+      data.hits.forEach((h, i)=>{
+        const st = document.createElement("div");
+        st.className = "match-step";
+        st.innerHTML =
+          `<span class="m-card">${h.cardName} <span style="font-size:10px;opacity:.7">#${h.cardNo}</span>` +
+          `<span class="order-badge">${i+1}</span></span>` +
+          `<span class="m-at">位於第 ${h.slotNo} 格・${h.slotName}宮</span>`;
+        chain.appendChild(st);
+        if (i < data.hits.length - 1){
+          const ar = document.createElement("span");
+          ar.className = "node-arrow";
+          ar.textContent = "→";
+          chain.appendChild(ar);
+        }
+      });
+      box.appendChild(chain);
+    }else{
+      const none = document.createElement("div");
+      none.className = "hit-none";
+      none.textContent = "頭朝前三格與此序列沒有交集。";
+      box.appendChild(none);
+    }
+
+    wrap.appendChild(box);
+    overListEl.appendChild(wrap);
+  });
+
+  markReachCells();
+}
+
+function markReachCells(){
+  document.querySelectorAll(".cell.reach").forEach(el=>{
+    el.classList.remove("reach","head");
+  });
+  if (currentDraw.length !== 36) return;
+  const idx = buildIndex();
+  const dirs = currentDirs();
+  const cellEls = boardEl.querySelectorAll(".cell");
+
+  Object.keys(dirs).forEach(k=>{
+    const cardNo = Number(k);
+    const slots = reachSlots(cardNo, dirs[k], idx);
+    slots.forEach(slotNo=>{
+      const pos = LAYOUT.findIndex(s=>s.no===slotNo);
+      if (cellEls[pos]) cellEls[pos].classList.add("reach");
+    });
+    const basePos = LAYOUT.findIndex(s=>s.no===idx.where[cardNo]);
+    if (cellEls[basePos]) cellEls[basePos].classList.add("reach","head");
+  });
+}
+
 /* ============ 12. 自檢 ============ */
 function debugDump(){
   if (currentDraw.length !== 36){ console.log("尚無牌陣"); return; }
   const idx = buildIndex();
-  const facing = computeFacing(currentDraw, faceMode.value);
-  const dirs = {28:facing[28], 29:facing[29], 15:bearFaceEl.value, 7:snakeFaceEl.value};
+  const dirs = currentDirs();
 
   console.group("【自檢】循環序列（分析1）");
   buildAllCycles().forEach(cy=>{
@@ -749,6 +707,8 @@ function debugDump(){
     console.log(`交集（最多3）：${data.hits.map(h=>h.cardName).join(" → ") || "無"}`);
   });
   console.groupEnd();
+
+  console.log("雪碧圖 sprite.png 可讀取：", spriteOK);
 }
 
 /* ============ 13. 存檔 / 載入 ============ */
@@ -756,8 +716,7 @@ const SCHEMA = "lenormand-grand-tableau/v1";
 
 function buildSaveObject(){
   const idx = buildIndex();
-  const facing = computeFacing(currentDraw, faceMode.value);
-  const dirs = {28:facing[28], 29:facing[29], 15:bearFaceEl.value, 7:snakeFaceEl.value};
+  const dirs = currentDirs();
 
   const obj = {
     schema: SCHEMA,
@@ -766,6 +725,7 @@ function buildSaveObject(){
     faceMode: faceMode.value,
     bearFace: bearFaceEl.value,
     snakeFace: snakeFaceEl.value,
+    imageSource: "sprite",
     draw: currentDraw.map(c => c.no),
     readable: {
       layout: "8欄x5列；第5列置中於第3-6欄",
@@ -907,7 +867,7 @@ function draw(){
   render();
   updateSaveBar();
 }
-
+///////
 function render(){
   const facing = computeFacing(currentDraw, faceMode.value);
   boardEl.innerHTML = "";
@@ -925,9 +885,9 @@ function render(){
     const slotLine = document.createElement("div");
     slotLine.className = "slot";
     slotLine.innerHTML =
-      `<span class="no">${slot.no}</span><span>${CARDS[slot.no-1].zh}宮</span>` +
+      '<span class="no">' + slot.no + '</span><span>' + CARDS[slot.no-1].zh + '宮</span>' +
       (showMean.checked
-        ? `<span style="margin-left:auto;font-size:10.5px;opacity:.85">${KEYWORD[slot.no]}</span>`
+        ? '<span style="margin-left:auto;font-size:10.5px;opacity:.85">' + KEYWORD[slot.no] + '</span>'
         : "");
     cell.appendChild(slotLine);
 
@@ -936,27 +896,22 @@ function render(){
     if (card.no===28) cardEl.classList.add("is-man");
     if (card.no===29) cardEl.classList.add("is-woman");
 
-    const artNode = buildArt(card);
+    let artNode;
+    if (spriteOK === false){
+      artNode = buildFallbackNode(card);
+    } else {
+      artNode = buildArtNode(card);
+    }
+
     if ((card.no===28||card.no===29) && facing[card.no]==="left")
       artNode.classList.add("flip");
     cardEl.appendChild(artNode);
 
-    tryLoadImage(card.no, url=>{
-      if (!url || !artNode.isConnected) return;
-      const img = document.createElement("img");
-      img.className = "art-img";
-      img.src = url;
-      img.alt = card.zh;
-      if ((card.no===28||card.no===29) && facing[card.no]==="left")
-        img.classList.add("flip");
-      artNode.replaceWith(img);
-    });
-
     const meta = document.createElement("div");
     meta.className = "meta";
     meta.innerHTML =
-      `<span class="name">${card.zh}</span>` +
-      `<span class="num">#${card.no} ${card.en}</span>`;
+      '<span class="name">' + card.zh + '</span>' +
+      '<span class="num">#' + card.no + ' ' + card.en + '</span>';
     cardEl.appendChild(meta);
 
     if (card.no===28 || card.no===29){
@@ -973,18 +928,22 @@ function render(){
   const manPos   = LAYOUT[currentDraw.findIndex(c=>c.no===28)];
   const womanPos = LAYOUT[currentDraw.findIndex(c=>c.no===29)];
   const rel = manPos.row===womanPos.row
-    ? `同一列（第 ${manPos.row} 列）`
-    : `第 ${manPos.row} 列 與 第 ${womanPos.row} 列`;
-  const hasImg = Object.values(imgCache).some(Boolean);
+    ? '同一列（第 ' + manPos.row + ' 列）'
+    : '第 ' + manPos.row + ' 列 與 第 ' + womanPos.row + ' 列';
   noteEl.innerHTML =
-    `<b>男人</b>：第 ${manPos.no} 格　<b>女人</b>：第 ${womanPos.no} 格；相對位置：${rel}；` +
-    `朝向：${faceMode.value==="mutual"?"彼此相向":"皆朝右"}。<br>` +
-    `牌圖來源：${hasImg?"已載入 cards/ 目錄的圖檔":"尚未偵測到 cards/ 圖檔，目前使用程式繪製牌面"}`;
+    '<b>男人</b>：第 ' + manPos.no + ' 格　<b>女人</b>：第 ' + womanPos.no + ' 格；相對位置：' + rel + '；' +
+    '朝向：' + (faceMode.value==="mutual"?"彼此相向":"皆朝右") + '。<br>' +
+    '牌圖來源：' + (spriteOK === null
+      ? "偵測中…"
+      : (spriteOK ? "已載入 sprite.png（6×6 雪碧圖）" : "未偵測到 sprite.png，使用文字 fallback"));
 
   renderSequences();
   renderOverlaps();
   if (currentMeta.saved) updateSaveBar();
 }
+///////
+
+//////
 
 /* ============ 15. 事件 ============ */
 document.getElementById("btnShuffle").addEventListener("click", ()=>{
@@ -1031,7 +990,14 @@ noteInput.addEventListener("input", ()=>{
 });
 
 /* ============ 16. 啟動 ============ */
-draw();
+
+spriteAvailable(function(){ draw(); });
+setTimeout(function(){
+  if (currentDraw.length !== 36) draw();
+}, 1500);
+
+
+
 </script>
 </body>
 </html>
